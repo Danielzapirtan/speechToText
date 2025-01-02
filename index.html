@@ -1,200 +1,59 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Transcription App</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.css">
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        
-        .container {
-            background-color: #f9fafb;
-            border-radius: 8px;
-            padding: 2rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        
-        .dropzone {
-            border: 2px dashed #4f46e5;
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            background: white;
-            cursor: pointer;
-            margin-bottom: 1rem;
-        }
-        
-        .dropzone:hover {
-            border-color: #4338ca;
-            background: #f5f3ff;
-        }
-        
-        #transcription {
-            margin-top: 1rem;
-            padding: 1rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            background: white;
-            min-height: 100px;
-            white-space: pre-wrap;
-        }
-        
-        .status {
-            margin: 1rem 0;
-            padding: 0.5rem;
-            border-radius: 4px;
-        }
-        
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        
-        .success {
-            background: #dcfce7;
-            color: #166534;
-        }
-        
-        button {
-            background: #4f46e5;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        button:hover {
-            background: #4338ca;
-        }
-        
-        button:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Audio Transcription</h1>
-        <p>Upload an MP3 file to get its transcription. Works best with clear speech.</p>
-        
-        <div id="dropzone" class="dropzone">
-            <p>Drop your audio file here or click to select</p>
-            <input type="file" id="fileInput" accept="audio/*" style="display: none">
-        </div>
-        
-        <div id="status" class="status" style="display: none"></div>
-        
-        <div id="controls" style="display: none">
-            <audio id="audio" controls style="width: 100%; margin: 1rem 0;"></audio>
-            <button id="startTranscription">Start Transcription</button>
-        </div>
-        
-        <div id="transcription"></div>
-    </div>
+// main.js
+class AudioProcessor {
+  constructor() {
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    this.worker = new Worker('transcriptWorker.js');
+    this.setupWorkerHandlers();
+  }
 
-    <script>
-        const dropzone = document.getElementById('dropzone');
-        const fileInput = document.getElementById('fileInput');
-        const audio = document.getElementById('audio');
-        const controls = document.getElementById('controls');
-        const startButton = document.getElementById('startTranscription');
-        const transcriptionDiv = document.getElementById('transcription');
-        const statusDiv = document.getElementById('status');
+  setupWorkerHandlers() {
+    this.worker.onmessage = (e) => {
+      if (e.data.type === 'transcriptProgress') {
+        this.updateTranscriptUI(e.data.transcript);
+      }
+    };
+  }
 
-        // Handle drag and drop
-        dropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzone.style.borderColor = '#4338ca';
-            dropzone.style.background = '#f5f3ff';
-        });
+  async processAudioFile(audioFile) {
+    try {
+      // Start audio playback
+      const audioBuffer = await this.loadAudioFile(audioFile);
+      const playbackPromise = this.playAudio(audioBuffer);
 
-        dropzone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropzone.style.borderColor = '#4f46e5';
-            dropzone.style.background = 'white';
-        });
+      // Start transcript processing in parallel
+      const arrayBuffer = await audioFile.arrayBuffer();
+      this.worker.postMessage({
+        type: 'processTranscript',
+        audioData: arrayBuffer
+      });
 
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.style.borderColor = '#4f46e5';
-            dropzone.style.background = 'white';
-            
-            const file = e.dataTransfer.files[0];
-            handleFile(file);
-        });
+      // Wait for both operations to complete
+      await playbackPromise;
+      console.log('Audio playback completed');
+    } catch (error) {
+      console.error('Error processing audio:', error);
+    }
+  }
 
-        dropzone.addEventListener('click', () => {
-            fileInput.click();
-        });
+  async loadAudioFile(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    return await this.audioContext.decodeAudioData(arrayBuffer);
+  }
 
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            handleFile(file);
-        });
+  playAudio(audioBuffer) {
+    return new Promise((resolve) => {
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.audioContext.destination);
+      source.onended = resolve;
+      source.start(0);
+    });
+  }
 
-        function handleFile(file) {
-            if (!file || !file.type.startsWith('audio/')) {
-                showStatus('Please upload an audio file.', 'error');
-                return;
-            }
-
-            const url = URL.createObjectURL(file);
-            audio.src = url;
-            controls.style.display = 'block';
-            showStatus('Audio file loaded successfully.', 'success');
-        }
-
-        // Speech recognition setup
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onresult = (event) => {
-            let transcript = '';
-            for (let i = 0; i < event.results.length; i++) {
-                transcript += event.results[i][0].transcript + ' ';
-            }
-            transcriptionDiv.textContent = transcript;
-        };
-
-        recognition.onerror = (event) => {
-            showStatus('Error during transcription: ' + event.error, 'error');
-            startButton.disabled = false;
-        };
-
-        recognition.onend = () => {
-            startButton.disabled = false;
-            showStatus('Transcription completed.', 'success');
-        };
-
-        startButton.addEventListener('click', () => {
-            if (audio.src) {
-                try {
-                    startButton.disabled = true;
-                    audio.play();
-                    recognition.start();
-                    showStatus('Transcription in progress...', 'success');
-                } catch (error) {
-                    showStatus('Error starting transcription: ' + error.message, 'error');
-                    startButton.disabled = false;
-                }
-            }
-        });
-
-        function showStatus(message, type) {
-            statusDiv.textContent = message;
-            statusDiv.style.display = 'block';
-            statusDiv.className = 'status ' + type;
-        }
-    </script>
-</body>
-</html>
+  updateTranscriptUI(transcript) {
+    const transcriptElement = document.getElementById('transcript');
+    if (transcriptElement) {
+      transcriptElement.textContent = transcript;
+    }
+  }
+}
