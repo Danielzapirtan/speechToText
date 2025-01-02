@@ -1,43 +1,128 @@
 // transcriptWorker.js
+// Direct audio file processing approach
+let mediaRecorder;
+let audioContext;
+let recognition;
+
 self.onmessage = async function(e) {
-  if (e.data.type === 'processTranscript') {
-    const audioData = e.data.audioData;
-    
-    // Simulate transcript processing with chunks
-    const chunks = splitIntoChunks(audioData);
-    let transcript = '';
-    
-    for (const chunk of chunks) {
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Simulate transcript generation
-      transcript += processChunk(chunk);
-      
-      // Send progress back to main thread
-      self.postMessage({
-        type: 'transcriptProgress',
-        transcript: transcript
-      });
+    switch(e.data.command) {
+        case 'start':
+            await initializeAudio();
+            break;
+        case 'processFile':
+            await processAudioFile(e.data.file);
+            break;
+        case 'stop':
+            stopProcessing();
+            break;
     }
-  }
 };
 
-function splitIntoChunks(audioData) {
-  // Simulate splitting audio data into processable chunks
-  const chunkSize = 1024;
-  const chunks = [];
-  const view = new Uint8Array(audioData);
-  
-  for (let i = 0; i < view.length; i += chunkSize) {
-    chunks.push(view.slice(i, i + chunkSize));
-  }
-  
-  return chunks;
+async function initializeAudio() {
+    try {
+        // Initialize Web Speech API
+        recognition = new (self.SpeechRecognition || self.webkitSpeechRecognition)();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        recognition.onresult = (event) => {
+            const transcript = Array.from(event.results)
+                .map(result => result[0].transcript)
+                .join('');
+            
+            self.postMessage({
+                type: 'transcript',
+                data: transcript
+            });
+        };
+
+        recognition.onerror = (event) => {
+            self.postMessage({
+                type: 'error',
+                data: `Speech recognition error: ${event.error}`
+            });
+        };
+
+        // Initialize Audio Context
+        audioContext = new (self.AudioContext || self.webkitAudioContext)();
+        
+        self.postMessage({
+            type: 'status',
+            data: 'Audio system initialized'
+        });
+    } catch (error) {
+        self.postMessage({
+            type: 'error',
+            data: `Initialization error: ${error.message}`
+        });
+    }
 }
 
-function processChunk(chunk) {
-  // Simulate processing a chunk of audio data
-  // In a real implementation, this would use a speech-to-text service
-  return 'Sample text ';
+async function processAudioFile(file) {
+    try {
+        // Direct file processing approach
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Create source and connect to audio context
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        // Create analyzer for audio processing
+        const analyzer = audioContext.createAnalyser();
+        source.connect(analyzer);
+        analyzer.connect(audioContext.destination);
+        
+        // Start playback and recognition
+        source.start(0);
+        recognition.start();
+        
+        source.onended = () => {
+            recognition.stop();
+            self.postMessage({
+                type: 'status',
+                data: 'Processing completed'
+            });
+        };
+    } catch (error) {
+        self.postMessage({
+            type: 'error',
+            data: `Processing error: ${error.message}`
+        });
+    }
+}
+
+function stopProcessing() {
+    if (recognition) {
+        recognition.stop();
+    }
+    if (mediaRecorder) {
+        mediaRecorder.stop();
+    }
+    if (audioContext) {
+        audioContext.close();
+    }
+}
+
+// Alternative approach using analog loopback (not recommended but included for reference)
+async function setupAnalogLoopback() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        recognition.start();
+        
+        mediaRecorder.ondataavailable = async (event) => {
+            const audioBlob = new Blob([event.data], { type: 'audio/webm' });
+            // Process the recorded audio chunk
+            await processAudioChunk(audioBlob);
+        };
+        
+        mediaRecorder.start(1000); // Capture in 1-second chunks
+    } catch (error) {
+        self.postMessage({
+            type: 'error',
+            data: `Loopback setup error: ${error.message}`
+        });
+    }
 }
