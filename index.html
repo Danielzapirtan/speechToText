@@ -1,23 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Audio Processor Demo</title>
+    <title>Audio Transcription</title>
 </head>
 <body>
     <input type="file" id="audioFile" accept="audio/*">
-    <div id="transcript"></div>
-    
+    <button id="transcribeButton">Transcribe</button>
+    <textarea id="transcript" rows="10" cols="50" readonly></textarea>
+
     <script src="main.js"></script>
-    <script src="transcriptWorker.js"></script>
-    <script>
-        const processor = new AudioProcessor();
-        
-        document.getElementById('audioFile').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                processor.processAudioFile(file);
-            }
-        });
-    </script>
 </body>
 </html>
