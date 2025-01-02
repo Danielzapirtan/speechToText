@@ -1,107 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Transcription App</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.css">
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        
-        .container {
-            background-color: #f9fafb;
-            border-radius: 8px;
-            padding: 2rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        
-        .dropzone {
-            border: 2px dashed #4f46e5;
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            background: white;
-            cursor: pointer;
-            margin-bottom: 1rem;
-        }
-        
-        .dropzone:hover {
-            border-color: #4338ca;
-            background: #f5f3ff;
-        }
-        
-        #transcription {
-            margin-top: 1rem;
-            padding: 1rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            background: white;
-            min-height: 100px;
-            white-space: pre-wrap;
-        }
-        
-        .status {
-            margin: 1rem 0;
-            padding: 0.5rem;
-            border-radius: 4px;
-        }
-        
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        
-        .success {
-            background: #dcfce7;
-            color: #166534;
-        }
-        
-        button {
-            background: #4f46e5;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        button:hover {
-            background: #4338ca;
-        }
-        
-        button:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-        }
-    </style>
+    <title>Audio Processor Demo</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Audio Transcription</h1>
-        <p>Upload an MP3 file to get its transcription. Works best with clear speech.</p>
-        
-        <div id="dropzone" class="dropzone">
-            <p>Drop your audio file here or click to select</p>
-            <input type="file" id="fileInput" accept="audio/*" style="display: none">
-        </div>
-        
-        <div id="status" class="status" style="display: none"></div>
-        
-        <div id="controls" style="display: none">
-            <audio id="audio" controls style="width: 100%; margin: 1rem 0;"></audio>
-            <button id="startTranscription">Start Transcription</button>
-        </div>
-        
-        <div id="transcription"></div>
-    </div>
-
+    <input type="file" id="audioFile" accept="audio/*">
+    <div id="transcript"></div>
+    
     <script src="main.js"></script>
     <script src="transcriptWorker.js"></script>
+    <script>
+        const processor = new AudioProcessor();
+        
+        document.getElementById('audioFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processor.processAudioFile(file);
+            }
+        });
+    </script>
 </body>
 </html>

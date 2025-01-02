@@ -1,22 +1,43 @@
-// Alternative approach using analog loopback (not recommended but included for reference)
-async function setupAnalogLoopback() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        
-        recognition.start();
-        
-        mediaRecorder.ondataavailable = async (event) => {
-            const audioBlob = new Blob([event.data], { type: 'audio/webm' });
-            // Process the recorded audio chunk
-            await processAudioChunk(audioBlob);
-        };
-        
-        mediaRecorder.start(1000); // Capture in 1-second chunks
-    } catch (error) {
-        self.postMessage({
-            type: 'error',
-            data: `Loopback setup error: ${error.message}`
-        });
+// transcriptWorker.js
+self.onmessage = async function(e) {
+  if (e.data.type === 'processTranscript') {
+    const audioData = e.data.audioData;
+    
+    // Simulate transcript processing with chunks
+    const chunks = splitIntoChunks(audioData);
+    let transcript = '';
+    
+    for (const chunk of chunks) {
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Simulate transcript generation
+      transcript += processChunk(chunk);
+      
+      // Send progress back to main thread
+      self.postMessage({
+        type: 'transcriptProgress',
+        transcript: transcript
+      });
     }
+  }
+};
+
+function splitIntoChunks(audioData) {
+  // Simulate splitting audio data into processable chunks
+  const chunkSize = 1024;
+  const chunks = [];
+  const view = new Uint8Array(audioData);
+  
+  for (let i = 0; i < view.length; i += chunkSize) {
+    chunks.push(view.slice(i, i + chunkSize));
+  }
+  
+  return chunks;
+}
+
+function processChunk(chunk) {
+  // Simulate processing a chunk of audio data
+  // In a real implementation, this would use a speech-to-text service
+  return 'Sample text ';
 }
