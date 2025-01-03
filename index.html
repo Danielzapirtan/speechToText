@@ -1,23 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Audio Processor Demo</title>
+  <title>Frontend Speech-to-Text</title>
 </head>
 <body>
-    <input type="file" id="audioFile" accept="audio/*">
-    <div id="transcript"></div>
-    
-    <script src="main.js"></script>
-    <script src="transcriptWorker.js"></script>
-    <script>
-        const processor = new AudioProcessor();
-        
-        document.getElementById('audioFile').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                processor.processAudioFile(file);
-            }
-        });
-    </script>
+  <h1>Speech-to-Text</h1>
+  <button id="startButton">Start</button>
+  <div id="output"></div>
+
+  <script>
+    const startButton = document.getElementById('startButton');
+    const outputDiv = document.getElementById('output');
+
+    // Check for browser support
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+
+      recognition.lang = 'ro-RO'; // Set the language
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        outputDiv.textContent = transcript;
+      };
+
+      startButton.addEventListener('click', () => {
+        recognition.start();
+      });
+    } else {
+      outputDiv.textContent = 'Speech Recognition not supported in this browser.';
+    }
+  </script>
 </body>
 </html>
